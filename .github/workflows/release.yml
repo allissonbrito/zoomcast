@@ -14,6 +14,14 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
       - uses: Swatinem/rust-cache@v2
+      - name: FFmpeg
+        shell: pwsh
+        run: |
+          # ponytail: FFmpeg GPL (BtbN) p/ beta; trocar por build LGPL + aviso de licenca no 1.0
+          Invoke-WebRequest https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip -OutFile ff.zip
+          Expand-Archive ff.zip ff
+          $b = (Resolve-Path "ff/*/bin").Path
+          "$b" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
       - run: cargo test --workspace --locked
       - run: cargo build --release --locked --target x86_64-pc-windows-msvc -p zoomcast-gui -p zoomcast-cli
       - name: Empacotar
@@ -23,9 +31,6 @@ jobs:
           New-Item -ItemType Directory $d | Out-Null
           Copy-Item target/x86_64-pc-windows-msvc/release/zoomcast-gui.exe $d
           Copy-Item target/x86_64-pc-windows-msvc/release/zoomcast-cli.exe $d
-          # ponytail: FFmpeg GPL (BtbN) empacotado p/ beta; trocar por build LGPL/aviso de licenca no 1.0
-          Invoke-WebRequest https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip -OutFile ff.zip
-          Expand-Archive ff.zip ff
           Copy-Item ff/*/bin/ffmpeg.exe, ff/*/bin/ffprobe.exe $d
           Copy-Item LICENSE $d
           Compress-Archive "$d/*" zoomcast-beta-windows-x64.zip
