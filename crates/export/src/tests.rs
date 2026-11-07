@@ -267,6 +267,45 @@ fn export_end_to_end() {
 }
 
 #[test]
+fn short_audio_does_not_cut_video() {
+    need_ffmpeg!();
+    let d = tempfile::tempdir().unwrap();
+    let mut p = make_project(d.path(), true, "320x180");
+    let source = p.video_file();
+    let short = d.path().join("short.mp4");
+    ffmpeg(&[
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=320x180:rate=30:duration=4",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:duration=2",
+        "-map",
+        "0:v",
+        "-map",
+        "1:a",
+        "-c:v",
+        "libx264",
+        "-c:a",
+        "aac",
+        short.to_str().unwrap(),
+    ]);
+    fs::copy(&short, &source).unwrap();
+    p.manifest.timeline.trim_start_ms = 0;
+    p.manifest.timeline.trim_end_ms = None;
+    let out = d.path().join("full.mp4");
+    export_project(&p, &out, &ExportOptions::default(), &mut |_| {}).unwrap();
+    let info = probe(Path::new("ffmpeg"), &out).unwrap();
+    assert!(
+        info.duration_ms >= 3900,
+        "vídeo cortado: {} ms",
+        info.duration_ms
+    );
+}
+
+#[test]
 fn odd_dimensions_become_even_and_no_audio() {
     need_ffmpeg!();
     let d = tempfile::tempdir().unwrap();

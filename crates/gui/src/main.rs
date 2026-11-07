@@ -238,132 +238,153 @@ fn card(ui: &mut egui::Ui, title: &str, body: impl FnOnce(&mut egui::Ui)) {
 }
 
 impl eframe::App for App {
+    #[allow(clippy::too_many_lines)]
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.poll();
         let idle = self.phase == Phase::Idle;
         let rec = self.phase == Phase::Recording;
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add_enabled_ui(idle, |ui| {
-                card(ui, "Fonte", |ui| {
-                    ui.horizontal(|ui| {
-                        ui.selectable_value(
-                            &mut self.form.kind,
-                            TargetKind::Primary,
-                            "Tela principal",
-                        );
-                        ui.selectable_value(
-                            &mut self.form.kind,
-                            TargetKind::Monitor,
-                            "Outro monitor",
-                        );
-                        ui.selectable_value(&mut self.form.kind, TargetKind::Window, "Janela");
-                    });
-                    match self.form.kind {
-                        TargetKind::Primary => {}
-                        TargetKind::Monitor => {
+            // Scroll evita conteúdo cortado em janelas baixas; largura segue a janela.
+            egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.set_max_width(ui.available_width());
+                    ui.add_enabled_ui(idle, |ui| {
+                        card(ui, "Fonte", |ui| {
                             ui.horizontal(|ui| {
-                                ui.label("Número (0 = primeiro)");
-                                ui.add(
-                                    egui::TextEdit::singleline(&mut self.form.monitor)
-                                        .desired_width(60.0),
+                                ui.selectable_value(
+                                    &mut self.form.kind,
+                                    TargetKind::Primary,
+                                    "Tela principal",
+                                );
+                                ui.selectable_value(
+                                    &mut self.form.kind,
+                                    TargetKind::Monitor,
+                                    "Outro monitor",
+                                );
+                                ui.selectable_value(
+                                    &mut self.form.kind,
+                                    TargetKind::Window,
+                                    "Janela",
                                 );
                             });
-                        }
-                        TargetKind::Window => {
+                            match self.form.kind {
+                                TargetKind::Primary => {}
+                                TargetKind::Monitor => {
+                                    ui.horizontal(|ui| {
+                                        ui.label("Número (0 = primeiro)");
+                                        ui.add(
+                                            egui::TextEdit::singleline(&mut self.form.monitor)
+                                                .desired_width(60.0),
+                                        );
+                                    });
+                                }
+                                TargetKind::Window => {
+                                    ui.add(
+                                        egui::TextEdit::singleline(&mut self.form.window)
+                                            .hint_text("Título exato da janela")
+                                            .desired_width(f32::INFINITY),
+                                    );
+                                }
+                            }
+                        });
+                        card(ui, "Efeitos", |ui| {
                             ui.add(
-                                egui::TextEdit::singleline(&mut self.form.window)
-                                    .hint_text("Título exato da janela")
-                                    .desired_width(f32::INFINITY),
+                                egui::Slider::new(&mut self.form.zoom, 1.0..=4.0)
+                                    .text("Zoom no clique"),
                             );
-                        }
-                    }
-                });
-                card(ui, "Efeitos", |ui| {
-                    ui.add(
-                        egui::Slider::new(&mut self.form.zoom, 1.0..=4.0).text("Zoom no clique"),
-                    );
-                    ui.horizontal(|ui| {
-                        ui.label("Microfone");
-                        egui::ComboBox::from_id_salt("mic")
-                            .selected_text(
-                                self.form.mic.clone().unwrap_or_else(|| "Sem áudio".into()),
-                            )
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.form.mic, None, "Sem áudio");
-                                for d in &self.devices {
-                                    ui.selectable_value(&mut self.form.mic, Some(d.clone()), d);
+                            ui.horizontal(|ui| {
+                                ui.label("Microfone");
+                                egui::ComboBox::from_id_salt("mic")
+                                    .width(180.0)
+                                    .truncate()
+                                    .selected_text(
+                                        self.form.mic.clone().unwrap_or_else(|| "Sem áudio".into()),
+                                    )
+                                    .show_ui(ui, |ui| {
+                                        ui.selectable_value(&mut self.form.mic, None, "Sem áudio");
+                                        for d in &self.devices {
+                                            ui.selectable_value(
+                                                &mut self.form.mic,
+                                                Some(d.clone()),
+                                                d,
+                                            );
+                                        }
+                                    });
+                                if ui.button("Atualizar").clicked() {
+                                    self.refresh_devices(ctx);
                                 }
                             });
-                        if ui.button("Atualizar").clicked() {
-                            self.refresh_devices(ctx);
+                        });
+                        card(ui, "Salvar em", |ui| {
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.form.dir)
+                                    .hint_text("Vazio = Vídeos\\Zoomcast\\rec-<data> (automático)")
+                                    .desired_width(f32::INFINITY),
+                            );
+                        });
+                    });
+                    ui.add_space(6.0);
+                    ui.vertical_centered(|ui| {
+                        let (label, fill) = if rec {
+                            ("■  Parar", egui::Color32::from_rgb(0x44, 0x44, 0x4c))
+                        } else {
+                            ("●  Gravar", egui::Color32::from_rgb(0xe5, 0x39, 0x35))
+                        };
+                        let btn = egui::Button::new(
+                            egui::RichText::new(label)
+                                .size(20.0)
+                                .strong()
+                                .color(egui::Color32::WHITE),
+                        )
+                        .fill(fill)
+                        .min_size(egui::vec2(220.0, 52.0))
+                        .corner_radius(egui::CornerRadius::same(26));
+                        if ui.add_enabled(idle || rec, btn).clicked() {
+                            if rec { self.stop() } else { self.record(ctx) }
                         }
                     });
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add_enabled(
+                                idle && !self.form.dir.trim().is_empty(),
+                                egui::Button::new("Exportar MP4")
+                                    .fill(ACCENT)
+                                    .stroke(egui::Stroke::NONE),
+                            )
+                            .clicked()
+                        {
+                            self.export(ctx);
+                        }
+                        if ui
+                            .add_enabled(
+                                !self.form.dir.trim().is_empty(),
+                                egui::Button::new("Abrir pasta"),
+                            )
+                            .clicked()
+                        {
+                            open_folder(self.form.dir.trim());
+                        }
+                    });
+                    ui.separator();
+                    ui.label(egui::RichText::new(&self.status).weak());
+                    if let Some(e) = &self.error {
+                        ui.colored_label(
+                            egui::Color32::from_rgb(0xc6, 0x28, 0x28),
+                            format!("Erro: {e}"),
+                        );
+                    }
                 });
-                card(ui, "Salvar em", |ui| {
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.form.dir)
-                            .hint_text("Vazio = Vídeos\\Zoomcast\\rec-<data> (automático)")
-                            .desired_width(f32::INFINITY),
-                    );
-                });
-            });
-            ui.add_space(6.0);
-            ui.vertical_centered(|ui| {
-                let (label, fill) = if rec {
-                    ("■  Parar", egui::Color32::from_rgb(0x44, 0x44, 0x4c))
-                } else {
-                    ("●  Gravar", egui::Color32::from_rgb(0xe5, 0x39, 0x35))
-                };
-                let btn = egui::Button::new(
-                    egui::RichText::new(label)
-                        .size(20.0)
-                        .strong()
-                        .color(egui::Color32::WHITE),
-                )
-                .fill(fill)
-                .min_size(egui::vec2(220.0, 52.0))
-                .corner_radius(egui::CornerRadius::same(26));
-                if ui.add_enabled(idle || rec, btn).clicked() {
-                    if rec { self.stop() } else { self.record(ctx) }
-                }
-            });
-            ui.horizontal(|ui| {
-                if ui
-                    .add_enabled(
-                        idle && !self.form.dir.trim().is_empty(),
-                        egui::Button::new("Exportar MP4")
-                            .fill(ACCENT)
-                            .stroke(egui::Stroke::NONE),
-                    )
-                    .clicked()
-                {
-                    self.export(ctx);
-                }
-                if ui
-                    .add_enabled(
-                        !self.form.dir.trim().is_empty(),
-                        egui::Button::new("Abrir pasta"),
-                    )
-                    .clicked()
-                {
-                    open_folder(self.form.dir.trim());
-                }
-            });
-            ui.separator();
-            ui.label(egui::RichText::new(&self.status).weak());
-            if let Some(e) = &self.error {
-                ui.colored_label(
-                    egui::Color32::from_rgb(0xc6, 0x28, 0x28),
-                    format!("Erro: {e}"),
-                );
-            }
         });
     }
 }
 
 fn main() -> eframe::Result {
     let opts = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([460.0, 620.0]),
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([460.0, 620.0])
+            .with_min_inner_size([360.0, 320.0])
+            .with_resizable(true),
         ..Default::default()
     };
     eframe::run_native(

@@ -50,7 +50,7 @@ pub fn auto_dir(unix_secs: u64) -> PathBuf {
         .join(format!("rec-{unix_secs}"))
 }
 
-/// FFmpeg: `ZOOMCAST_FFMPEG`, senão `ffmpeg(.exe)` ao lado do executável, senão `PATH`.
+/// `FFmpeg`: `ZOOMCAST_FFMPEG`, senão `ffmpeg(.exe)` ao lado do executável, senão `PATH`.
 pub fn ffmpeg_bin() -> PathBuf {
     if let Some(v) = std::env::var_os("ZOOMCAST_FFMPEG").filter(|v| !v.is_empty()) {
         return v.into();

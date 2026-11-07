@@ -248,7 +248,9 @@ fn build_commands(
     }
     enc_cmd.args(["-map", "0:v:0"]);
     if info.has_audio {
-        enc_cmd.args(["-map", "1:a:0", "-c:a", "aac", "-b:a", "192k", "-shortest"]);
+        // Sem -shortest: áudio curto não pode truncar o vídeo;
+        // o codificador para naturalmente quando o stream de frames (pipe:0) fecha.
+        enc_cmd.args(["-map", "1:a:0", "-c:a", "aac", "-b:a", "192k"]);
     }
     enc_cmd
         .arg("-vf")
