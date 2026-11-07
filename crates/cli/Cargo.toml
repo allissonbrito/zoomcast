@@ -1,0 +1,15 @@
+[package]
+name = "zoomcast-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+zoomcast-core.workspace = true
+zoomcast-export.workspace = true
+zoomcast-capture.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
