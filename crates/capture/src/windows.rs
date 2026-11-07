@@ -234,7 +234,10 @@ impl CaptureBackend for WindowsBackend {
         let output = cfg.out_dir.join(args::VIDEO_REL);
         let argv = args::build_ffmpeg_args(cfg.fps, region, cfg.mic.as_deref(), &output)?;
         std::fs::create_dir_all(cfg.out_dir.join("media"))?;
-        let mut child = Command::new(&cfg.ffmpeg_bin)
+        let mut cmd = Command::new(&cfg.ffmpeg_bin);
+        // CREATE_NO_WINDOW: sem console próprio (evita CTRL_C_EXIT 0xc000013a ao fechar console).
+        std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0800_0000);
+        let mut child = cmd
             .args(argv)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -312,7 +315,10 @@ impl CaptureBackend for WindowsBackend {
             .mouse
             .join()
             .map_err(|_| CaptureError::Ffmpeg("thread mouse falhou".into()))?;
-        if !status.success() || progress.last_frame == 0 {
+        let file_len = std::fs::metadata(active.cfg.out_dir.join(args::VIDEO_REL))
+            .ok()
+            .map(|m| m.len());
+        if !args::capture_ok(status.success(), progress.last_frame, file_len) {
             return Err(CaptureError::Ffmpeg(format!("status {status}; {stderr}")));
         }
         // BrokenPipe é esperado quando ffmpeg terminou sozinho antes do stop.

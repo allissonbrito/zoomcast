@@ -32,6 +32,13 @@ pub fn parse_progress_line(line: &str) -> Option<Progress> {
         .map(Progress::OutTimeUs)
 }
 
+/// Captura válida mesmo se o ffmpeg sair com código != 0 (ex.: 0xc000013a no Windows ao
+/// receber `q`): exige ao menos 1 frame escrito e arquivo de saída não vazio.
+#[must_use]
+pub fn capture_ok(exit_success: bool, last_frame: u64, file_len: Option<u64>) -> bool {
+    last_frame > 0 && (exit_success || file_len.is_some_and(|n| n > 0))
+}
+
 /// Monta os argumentos do ffmpeg. Vídeo: desktop (gdigrab) recortado em `region`.
 /// Relógio: `use_wallclock_as_timestamps` nas entradas + `cfr` na saída → PTS = tempo real.
 ///
@@ -80,6 +87,10 @@ pub fn build_ffmpeg_args(
         "gdigrab",
         "-use_wallclock_as_timestamps",
         "1",
+        "-probesize",
+        "32M",
+        "-analyzeduration",
+        "0",
         "-framerate",
     ] {
         push(s);
@@ -128,6 +139,9 @@ pub fn build_ffmpeg_args(
         "yuv420p",
         "-fps_mode",
         "cfr",
+        // MP4 fragmentado: legível mesmo se o ffmpeg for encerrado sem finalizar o moov.
+        "-movflags",
+        "frag_keyframe+empty_moov",
         "-r",
     ] {
         push(s);
@@ -191,6 +205,21 @@ mod tests {
         assert!(build_ffmpeg_args(241, R, None, p).is_err());
         assert!(build_ffmpeg_args(30, Region { w: 1281, ..R }, None, p).is_err());
         assert!(build_ffmpeg_args(30, R, Some("  "), p).is_err());
+    }
+
+    #[test]
+    fn capture_ok_tolera_exit_code_com_arquivo() {
+        assert!(capture_ok(true, 5, None));
+        assert!(capture_ok(false, 5, Some(1000))); // 0xc000013a com vídeo gravado
+        assert!(!capture_ok(false, 5, Some(0)));
+        assert!(!capture_ok(false, 5, None));
+        assert!(!capture_ok(true, 0, Some(1000)));
+    }
+
+    #[test]
+    fn mp4_fragmentado() {
+        let a = s(&build_ffmpeg_args(30, R, None, Path::new("x.mp4")).unwrap());
+        assert_eq!(a[pos(&a, "-movflags") + 1], "frag_keyframe+empty_moov");
     }
 
     #[test]
