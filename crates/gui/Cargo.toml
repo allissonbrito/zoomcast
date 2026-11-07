@@ -1,0 +1,19 @@
+[package]
+name = "zoomcast-gui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "zoomcast-gui"
+path = "src/main.rs"
+
+[dependencies]
+zoomcast-core.workspace = true
+zoomcast-export.workspace = true
+zoomcast-capture.workspace = true
+eframe = { version = "0.32", default-features = false, features = ["glow", "default_fonts", "x11"] }
+
+[lints]
+workspace = true
