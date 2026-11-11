@@ -200,20 +200,38 @@ impl App {
 
 const ACCENT: egui::Color32 = egui::Color32::from_rgb(0x2f, 0x6b, 0xff);
 
+// Paleta escura inspirada no Zed (One Dark).
+const BG: egui::Color32 = egui::Color32::from_rgb(0x28, 0x2c, 0x33);
+const SURFACE: egui::Color32 = egui::Color32::from_rgb(0x2f, 0x34, 0x3e);
+const BORDER: egui::Color32 = egui::Color32::from_rgb(0x46, 0x4b, 0x57);
+const TEXT: egui::Color32 = egui::Color32::from_rgb(0xdc, 0xe0, 0xe5);
+const MUTED: egui::Color32 = egui::Color32::from_rgb(0x87, 0x8a, 0x98);
+
 fn style(ctx: &egui::Context) {
-    ctx.set_visuals(egui::Visuals::light());
+    let mut v = egui::Visuals::dark();
+    v.panel_fill = BG;
+    v.window_fill = SURFACE;
+    v.extreme_bg_color = BG; // fundo de campos de texto
+    v.override_text_color = Some(TEXT);
+    v.weak_text_color = Some(MUTED);
+    v.selection.bg_fill = ACCENT;
+    v.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, BORDER);
+    v.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, ACCENT);
+    v.widgets.inactive.weak_bg_fill = SURFACE;
+    v.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, BORDER);
+    v.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(0x36, 0x3c, 0x46);
+    v.widgets.active.weak_bg_fill = egui::Color32::from_rgb(0x3d, 0x44, 0x4f);
+    for w in [
+        &mut v.widgets.inactive,
+        &mut v.widgets.hovered,
+        &mut v.widgets.active,
+    ] {
+        w.corner_radius = egui::CornerRadius::same(8);
+    }
+    ctx.set_visuals(v);
     ctx.style_mut(|s| {
-        s.visuals.selection.bg_fill = ACCENT;
-        s.visuals.widgets.hovered.bg_stroke.color = ACCENT;
         s.spacing.item_spacing = egui::vec2(10.0, 10.0);
         s.spacing.button_padding = egui::vec2(14.0, 8.0);
-        for w in [
-            &mut s.visuals.widgets.inactive,
-            &mut s.visuals.widgets.hovered,
-            &mut s.visuals.widgets.active,
-        ] {
-            w.corner_radius = egui::CornerRadius::same(10);
-        }
     });
 }
 
@@ -228,7 +246,9 @@ fn open_folder(dir: &str) {
 
 fn card(ui: &mut egui::Ui, title: &str, body: impl FnOnce(&mut egui::Ui)) {
     egui::Frame::group(ui.style())
-        .corner_radius(egui::CornerRadius::same(14))
+        .fill(SURFACE)
+        .stroke(egui::Stroke::new(1.0_f32, BORDER))
+        .corner_radius(egui::CornerRadius::same(10))
         .inner_margin(14.0)
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
@@ -370,7 +390,7 @@ impl eframe::App for App {
                     ui.label(egui::RichText::new(&self.status).weak());
                     if let Some(e) = &self.error {
                         ui.colored_label(
-                            egui::Color32::from_rgb(0xc6, 0x28, 0x28),
+                            egui::Color32::from_rgb(0xff, 0x6b, 0x6b),
                             format!("Erro: {e}"),
                         );
                     }
